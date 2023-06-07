@@ -28,16 +28,16 @@ public class Main extends Plugin {
     @Override
     public void init() {
         Events.on(BuildSelectEvent.class, event -> {
-            // Проверяем план строительства единцы на наличие ториевого реактора
+            // Проверяем план строительства единицы на наличие ториевого реактора
             if (!event.breaking && event.builder != null && event.builder.buildPlan() != null && event.builder.buildPlan().block == Blocks.thoriumReactor) {
                 // Оповещаем игроков, если условие выполняется
                 Groups.player.forEach(player -> {
                     // Проходимся по всем игрокам и отправляем каждому локализованное сообщение
                     Unit builder = event.builder;
                     if (builder.isPlayer()) {
-                        player.sendMessage(bundler.get(player, "events.thorium-reactor.player", builder.getPlayer().name));
+                        player.sendMessage(bundler.get(player, "events.thorium-reactor.player", builder.getPlayer().name, event.tile.x, event.tile.y));
                     } else {
-                        player.sendMessage(bundler.get(player, "events.thorium-reactor.unit", builder.type.name));
+                        player.sendMessage(bundler.get(player, "events.thorium-reactor.unit", builder.type.name, event.tile.x, event.tile.y));
                     }
                 });
             }
@@ -45,7 +45,7 @@ public class Main extends Plugin {
 
         // Добавляем фильтр чата, который изменяет все входящие сообщения
         // В данном случае все сообщения, содержащие "блять", будут под цензурой
-        Vars.netServer.admins.addChatFilter((player, text) -> text.replace("блять", "❤❤❤❤❤"));
+        Vars.netServer.admins.addChatFilter((player, text) -> text.replace("блять", "блин"));
 
         // Добавляем фильтр на действия игроков, чтобы запретить делать некоторые вещи
         // В данном случае запрещаем игроку класть взрывчатую смесь в ядро
