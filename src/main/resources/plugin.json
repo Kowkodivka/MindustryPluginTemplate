@@ -1,0 +1,11 @@
+{
+  "name": "название-вашего-плагина",
+  "displayName": "Название вашего плагина",
+  "minGameVersion": "144",
+  "version": "1.0.0",
+  "author": "Ваш ник",
+  "description": "Описание вашего плагина",
+  "main": "ru.example.plugin.Main",
+  "repo": "ВашНик/ВашРепозиторий",
+  "dependencies": []
+}
