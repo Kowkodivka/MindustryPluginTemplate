@@ -7,7 +7,6 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
-// https://github.com/Kowkodivka/MindustryDevTools/blob/c32e015c63c57229422035fb94b22bd47943c2d4/bundles/src/main/java/ru/kowkodivka/tool/bundles/DefaultBundler.java#L15
 public class DefaultBundler implements BundleProvider {
     // Стандартная локаль
     private final Locale defaultLocale = new Locale("en");
