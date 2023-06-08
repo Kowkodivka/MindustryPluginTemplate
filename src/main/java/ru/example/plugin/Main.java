@@ -3,6 +3,7 @@ package ru.example.plugin;
 import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
+import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.CommandHandler;
 import arc.util.Log;
@@ -141,15 +142,20 @@ public class Main extends Plugin {
             other.sendMessage(bundler.get(other, "commands.whisper.message", player.name, args[1]));
         });
 
-        // Регистрируем команду, которая позволит просматривать информацию о вышедших игроках
         handler.<Player>register("info", bundler.get("commands.info.params"), bundler.get("commands.info.description"), (args, player) -> {
             // PlayerInfo - содержит в себе информацию об игроке, который когда-то был на сервере
-            PlayerInfo info;
+            PlayerInfo info = null;
+            ObjectSet<PlayerInfo> found;
 
             // Проверяем первый параметр на наличие name или ip, чтобы нам было легче искать
-            if (Objects.equals(args[0], "name")) info = Vars.netServer.admins.findByName(args[1]).first();
-            else if (Objects.equals(args[0], "ip")) info = Vars.netServer.admins.findByIP(args[1]);
-            else {
+            if (Objects.equals(args[0], "name")) {
+                found = Vars.netServer.admins.findByName(args[1]);
+                if (!found.isEmpty()) {
+                    info = found.first();
+                }
+            } else if (Objects.equals(args[0], "ip")) {
+                info = Vars.netServer.admins.findByIP(args[1]);
+            } else {
                 player.sendMessage(bundler.get(player, "commands.info.invalid-params", args[0]));
                 return;
             }
@@ -159,14 +165,14 @@ public class Main extends Plugin {
                 return;
             }
 
-            String names = String.join("[],", info.names);
-            String ips = String.join("[],", info.ips);
+            String names = String.join("[], ", info.names);
+            String ips = String.join("[], ", info.ips);
 
             // Проверяем игрока на наличие роли администратора и отправляем соответствующее сообщение
             if (player.admin)
-                Call.infoMessage(player.con, bundler.get(player, "commands.info.about.admin", info.lastName, info.banned, names, ips, info.timesJoined, info.timesKicked));
+                player.sendMessage(bundler.get(player, "commands.info.about.admin", info.lastName, info.banned, names, ips, info.timesJoined, info.timesKicked));
             else
-                Call.infoMessage(player.con, bundler.get(player, "commands.info.about", info.lastName, info.banned, names, info.timesJoined, info.timesKicked));
+                player.sendMessage(bundler.get(player, "commands.info.about", info.lastName, info.banned, names, info.timesJoined, info.timesKicked));
         });
     }
 }
