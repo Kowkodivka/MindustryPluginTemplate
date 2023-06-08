@@ -3,6 +3,7 @@ package ru.example.plugin;
 import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
+import arc.struct.Seq;
 import arc.util.CommandHandler;
 import arc.util.Log;
 import arc.util.Timer;
@@ -15,13 +16,20 @@ import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.gen.Unit;
 import mindustry.mod.Plugin;
+import mindustry.net.NetConnection;
 import mindustry.world.blocks.storage.CoreBlock;
 import ru.example.plugin.bundles.DefaultBundler;
 
+import java.util.Objects;
+
 import static mindustry.game.EventType.BuildSelectEvent;
+import static mindustry.game.EventType.ConnectionEvent;
 import static mindustry.net.Administration.ActionType;
+import static mindustry.net.Administration.PlayerInfo;
+import static mindustry.net.Packets.Connect;
 
 public class Main extends Plugin {
+    private static final int maxIdenticalIPs = 3;
     private static final DefaultBundler bundler = new DefaultBundler();
 
     // Вызывается, когда игра инициализируется
@@ -29,18 +37,16 @@ public class Main extends Plugin {
     public void init() {
         Events.on(BuildSelectEvent.class, event -> {
             // Проверяем план строительства единицы на наличие ториевого реактора
-            if (!event.breaking && event.builder != null && event.builder.buildPlan() != null && event.builder.buildPlan().block == Blocks.thoriumReactor) {
-                // Оповещаем игроков, если условие выполняется
+            // Оповещаем игроков, если условие выполняется
+            if (!event.breaking && event.builder != null && event.builder.buildPlan() != null && event.builder.buildPlan().block == Blocks.thoriumReactor)
                 Groups.player.forEach(player -> {
                     // Проходимся по всем игрокам и отправляем каждому локализованное сообщение
                     Unit builder = event.builder;
-                    if (builder.isPlayer()) {
+                    if (builder.isPlayer())
                         player.sendMessage(bundler.get(player, "events.thorium-reactor.player", builder.getPlayer().name, event.tile.x, event.tile.y));
-                    } else {
+                    else
                         player.sendMessage(bundler.get(player, "events.thorium-reactor.unit", builder.type.name, event.tile.x, event.tile.y));
-                    }
                 });
-            }
         });
 
         // Добавляем фильтр чата, который изменяет все входящие сообщения
@@ -61,18 +67,34 @@ public class Main extends Plugin {
             return true;
         });
 
+        // Переопределяем слушатель входящих пакетов на свой
+        // В данном случае мы пишем простейшую защиту от ботов
+        // Если соединений от одного ip больше, чем задано нашей переменной, то мы все соединения закрываем и заносим в черный список
+        Vars.net.handleServer(Connect.class, (con, packet) -> {
+            // Не забываем, что мы перезаписываем слушатель и надо вызвать событие, чтобы все остальные части кода, подписанные на него, работали корректно
+            Events.fire(new ConnectionEvent(con));
+
+            // Получаем соединения и ищем все те, которые связаны с входящим
+            Seq<NetConnection> connections = Seq.with(Vars.net.getConnections()).filter(other -> other.address.equals(con.address));
+            if (connections.size >= maxIdenticalIPs) {
+                // Блокируем и отключаем их
+                Vars.netServer.admins.blacklistDos(con.address);
+                connections.each(NetConnection::close);
+            }
+        });
+
         // Здесь мы используя таймер, проходимся по всем ядрам и вокруг создаем эффект
         // Выполняется каждые 2 секунды
         Timer.schedule(() -> {
             int radius = 5;
             int numPoints = 360;
 
-            for (int x = 0; x < Vars.world.width(); x++) {
-                for (int y = 0; y < Vars.world.height(); y++) {
-                    // Проходимся и ищем все ядра на карте
-                    // Так же надо убедиться, что мы нашли центр ядра
-                    if ((Vars.world.tile(x, y).block() instanceof CoreBlock) && Vars.world.tile(x, y).isCenter()) {
-                        // Рисуем круг
+            // Проходимся и ищем все ядра на карте
+            // Так же надо убедиться, что мы нашли центр ядра
+            for (int x = 0; x < Vars.world.width(); x++)
+                for (int y = 0; y < Vars.world.height(); y++)
+                    // Рисуем круг
+                    if ((Vars.world.tile(x, y).block() instanceof CoreBlock) && Vars.world.tile(x, y).isCenter())
                         for (int i = 0; i < numPoints; i++) {
                             double angle = 2.0 * Math.PI * i / numPoints;
                             // Также надо не забыть нормализовать координаты умножением на Vars.tilesize
@@ -80,9 +102,6 @@ public class Main extends Plugin {
                             float targetY = (float) (y + radius * Math.sin(angle)) * Vars.tilesize;
                             Call.effect(Fx.absorb, targetX, targetY, Mathf.random((int) angle), Color.scarlet);
                         }
-                    }
-                }
-            }
         }, 1, 2);
     }
 
@@ -94,9 +113,8 @@ public class Main extends Plugin {
                 for (int y = 0; y < Vars.world.height(); y++) {
                     // Проходимся и логируем все реакторы на карте
                     // Так же надо убедиться, что мы нашли центр реактора
-                    if (Vars.world.tile(x, y).block() == Blocks.thoriumReactor && Vars.world.tile(x, y).isCenter()) {
+                    if (Vars.world.tile(x, y).block() == Blocks.thoriumReactor && Vars.world.tile(x, y).isCenter())
                         Log.info("Reactor at @, @", x, y);
-                    }
                 }
             }
         });
@@ -105,10 +123,10 @@ public class Main extends Plugin {
     // Регистрирует команды, которые игроки могут выполнять находясь в игре
     @Override
     public void registerClientCommands(CommandHandler handler) {
-        // Регистрирует простую команду, которая повторяет в чат (нам лично) сообщения
+        // Регистрируем простую команду, которая повторяет в чат (нам лично) сообщения
         handler.<Player>register("reply", bundler.get("commands.reply.params"), bundler.get("commands.reply.description"), (args, player) -> player.sendMessage(bundler.get(player, "commands.reply.said", args[0])));
 
-        // Регистрирует команду, которая отправляет личные сообщения другому игроку
+        // Регистрируем команду, которая отправляет личные сообщения другому игроку
         handler.<Player>register("whisper", bundler.get("commands.whisper.params"), bundler.get("commands.whisper.description"), (args, player) -> {
             // Ищем игрока на сервере по нику
             Player other = Groups.player.find(target -> target.name.equalsIgnoreCase(args[0]));
@@ -121,6 +139,34 @@ public class Main extends Plugin {
 
             // Отправляем сообщение другому игроку, используя [lightgray] для серого цвета текста и [] для сброса цвета
             other.sendMessage(bundler.get(other, "commands.whisper.message", player.name, args[1]));
+        });
+
+        // Регистрируем команду, которая позволит просматривать информацию о вышедших игроках
+        handler.<Player>register("info", bundler.get("commands.info.params"), bundler.get("commands.info.description"), (args, player) -> {
+            // PlayerInfo - содержит в себе информацию об игроке, который когда-то был на сервере
+            PlayerInfo info;
+
+            // Проверяем первый параметр на наличие name или ip, чтобы нам было легче искать
+            if (Objects.equals(args[0], "name")) info = Vars.netServer.admins.findByName(args[1]).first();
+            else if (Objects.equals(args[0], "ip")) info = Vars.netServer.admins.findByIP(args[1]);
+            else {
+                player.sendMessage(bundler.get(player, "commands.info.invalid-params", args[0]));
+                return;
+            }
+
+            if (info == null) {
+                player.sendMessage(bundler.get(player, "commands.info.not-found", args[1]));
+                return;
+            }
+
+            String names = String.join("[],", info.names);
+            String ips = String.join("[],", info.ips);
+
+            // Проверяем игрока на наличие роли администратора и отправляем соответствующее сообщение
+            if (player.admin)
+                Call.infoMessage(player.con, bundler.get(player, "commands.info.about.admin", info.lastName, info.banned, names, ips, info.timesJoined, info.timesKicked));
+            else
+                Call.infoMessage(player.con, bundler.get(player, "commands.info.about", info.lastName, info.banned, names, info.timesJoined, info.timesKicked));
         });
     }
 }
