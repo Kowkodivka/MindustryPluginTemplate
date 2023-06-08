@@ -163,12 +163,9 @@ public class Main extends Plugin {
             // Проверяем первый параметр на наличие name или ip, чтобы нам было легче искать
             if (Objects.equals(args[0], "name")) {
                 found = Vars.netServer.admins.findByName(args[1]);
-                if (!found.isEmpty()) {
-                    info = found.first();
-                }
-            } else if (Objects.equals(args[0], "ip")) {
-                info = Vars.netServer.admins.findByIP(args[1]);
-            } else {
+                if (!found.isEmpty()) info = found.first();
+            } else if (Objects.equals(args[0], "ip")) info = Vars.netServer.admins.findByIP(args[1]);
+            else {
                 player.sendMessage(bundler.get(player, "commands.info.invalid-params", args[0]));
                 return;
             }
