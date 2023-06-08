@@ -1,5 +1,6 @@
 package ru.example.plugin;
 
+import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
@@ -12,6 +13,8 @@ import mindustry.Vars;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
 import mindustry.content.Items;
+import mindustry.content.UnitTypes;
+import mindustry.entities.Units;
 import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
@@ -23,8 +26,7 @@ import ru.example.plugin.bundles.DefaultBundler;
 
 import java.util.Objects;
 
-import static mindustry.game.EventType.BuildSelectEvent;
-import static mindustry.game.EventType.ConnectionEvent;
+import static mindustry.game.EventType.*;
 import static mindustry.net.Administration.ActionType;
 import static mindustry.net.Administration.PlayerInfo;
 import static mindustry.net.Packets.Connect;
@@ -36,6 +38,17 @@ public class Main extends Plugin {
     // Вызывается, когда игра инициализируется
     @Override
     public void init() {
+        // Событие, которое происходит во время взрыва реактора неоплазии
+        Events.on(GeneratorPressureExplodeEvent.class, event -> Core.app.post(() -> {
+            // Проверяем, достаточно ли ресурсов для создания данного типа единицы и не находится ли она в черном списке
+            if (!Units.canCreate(event.build.team, UnitTypes.renale)) return;
+
+            // Создаем эффект и единицу типа renale
+            Call.spawnEffect(event.build.x, event.build.y, 0f, UnitTypes.renale);
+            UnitTypes.renale.spawn(event.build.team, event.build);
+        }));
+
+        // Событие, которое происходит во время строительства блока
         Events.on(BuildSelectEvent.class, event -> {
             // Проверяем план строительства единицы на наличие ториевого реактора
             // Оповещаем игроков, если условие выполняется
